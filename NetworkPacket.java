@@ -5,10 +5,11 @@
 */
 
 import java.util.*;
+import java.io.*;
 
 public class NetworkPacket {
 
-    // Node class for Huffman tree
+    // Node for Huffman tree
     private class Node implements Comparable<Node> {
         String symbol;
         int freq;
@@ -24,11 +25,21 @@ public class NetworkPacket {
     private int totalSymbols = 0;
 
     // Count symbol frequencies
-    public void analyzeFrequencies(ArrayList<String> symbols) {
+    public void analyzeFrequencies(String filename) throws IOException {
         freqMap.clear();
-        totalSymbols = symbols.size();
-        for (String sym : symbols)
+        codeMap.clear();
+        totalSymbols = 0;
+
+        File file = new File(filename);
+        if (!file.exists()) throw new FileNotFoundException("File not found: " + filename);
+
+        Scanner sc = new Scanner(file);
+        while (sc.hasNext()) {
+            String sym = sc.next();
             freqMap.put(sym, freqMap.getOrDefault(sym, 0) + 1);
+            totalSymbols++;
+        }
+        sc.close();
     }
 
     // Build Huffman tree
@@ -36,20 +47,32 @@ public class NetworkPacket {
         PriorityQueue<Node> pq = new PriorityQueue<>();
         for (Map.Entry<String, Integer> e : freqMap.entrySet())
             pq.add(new Node(e.getKey(), e.getValue()));
+
         if (pq.isEmpty()) return;
+
+        if (pq.size() == 1) {
+            Node single = pq.poll();
+            Node parent = new Node(null, single.freq);
+            parent.left = single;
+            root = parent;
+            buildCodeMap(root, "");
+            return;
+        }
+
         while (pq.size() > 1) {
             Node a = pq.poll();
             Node b = pq.poll();
             Node parent = new Node(null, a.freq + b.freq);
-            parent.left = a; parent.right = b;
+            parent.left = a;
+            parent.right = b;
             pq.add(parent);
         }
+
         root = pq.poll();
-        codeMap.clear();
         buildCodeMap(root, "");
     }
 
-    // Build binary codes
+    // Recursively assign binary codes
     private void buildCodeMap(Node node, String code) {
         if (node == null) return;
         if (node.isLeaf()) {
@@ -60,16 +83,24 @@ public class NetworkPacket {
         buildCodeMap(node.right, code + "1");
     }
 
-    // Encode symbols
-    public String encode(ArrayList<String> symbols) {
+    // Encode text file
+    public String encode(String filename) throws IOException {
         StringBuilder sb = new StringBuilder();
-        for (String sym : symbols)
+        File file = new File(filename);
+        if (!file.exists()) throw new FileNotFoundException("File not found: " + filename);
+
+        Scanner sc = new Scanner(file);
+        while (sc.hasNext()) {
+            String sym = sc.next();
             sb.append(codeMap.get(sym));
+        }
+        sc.close();
         return sb.toString();
     }
 
-    // Compute Huffman average bits
-    public double getHuffmanAvg(ArrayList<String> symbols) {
+    // Compute Huffman average
+    public double getHuffmanAvg() {
+        if (totalSymbols == 0) return 0.0;
         double total = 0.0;
         for (Map.Entry<String, Integer> e : freqMap.entrySet()) {
             double prob = (double) e.getValue() / totalSymbols;
@@ -79,8 +110,10 @@ public class NetworkPacket {
     }
 
     // Compute compression ratio
-    public double getRatio(double huffmanAvg) {
+    public double getRatio() {
+        if (freqMap.size() <= 1) return 1.0;
         int fixedBits = (int) Math.ceil(Math.log(freqMap.size()) / Math.log(2));
-        return fixedBits / huffmanAvg;
+        double huffAvg = getHuffmanAvg();
+        return fixedBits / huffAvg;
     }
 }
