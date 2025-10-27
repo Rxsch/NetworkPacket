@@ -5,7 +5,6 @@
 */
 
 import java.util.*;
-import java.io.*;
 
 public class NetworkPacket {
 
@@ -25,24 +24,18 @@ public class NetworkPacket {
     private int totalSymbols = 0;
 
     // Count symbol frequencies
-    public void analyzeFrequencies(String filename) throws IOException {
+    public void analyzeFrequencies(ArrayList<String> symbols) {
         freqMap.clear();
-        totalSymbols = 0;
-        try (Scanner sc = new Scanner(new File(filename))) {
-            while (sc.hasNext()) {
-                String sym = sc.next();
-                freqMap.put(sym, freqMap.getOrDefault(sym, 0) + 1);
-                totalSymbols++;
-            }
-        }
+        totalSymbols = symbols.size();
+        for (String sym : symbols)
+            freqMap.put(sym, freqMap.getOrDefault(sym, 0) + 1);
     }
 
     // Build Huffman tree
     public void buildHuffmanTree() {
         PriorityQueue<Node> pq = new PriorityQueue<>();
-        for (Map.Entry<String, Integer> e : freqMap.entrySet()) {
+        for (Map.Entry<String, Integer> e : freqMap.entrySet())
             pq.add(new Node(e.getKey(), e.getValue()));
-        }
         if (pq.isEmpty()) return;
         while (pq.size() > 1) {
             Node a = pq.poll();
@@ -52,6 +45,7 @@ public class NetworkPacket {
             pq.add(parent);
         }
         root = pq.poll();
+        codeMap.clear();
         buildCodeMap(root, "");
     }
 
@@ -66,20 +60,16 @@ public class NetworkPacket {
         buildCodeMap(node.right, code + "1");
     }
 
-    // Encode file to binary string
-    public String encode(String filename) throws IOException {
+    // Encode symbols
+    public String encode(ArrayList<String> symbols) {
         StringBuilder sb = new StringBuilder();
-        try (Scanner sc = new Scanner(new File(filename))) {
-            while (sc.hasNext()) {
-                String sym = sc.next();
-                sb.append(codeMap.get(sym));
-            }
-        }
+        for (String sym : symbols)
+            sb.append(codeMap.get(sym));
         return sb.toString();
     }
 
     // Compute Huffman average bits
-    public double getHuffmanAvg() {
+    public double getHuffmanAvg(ArrayList<String> symbols) {
         double total = 0.0;
         for (Map.Entry<String, Integer> e : freqMap.entrySet()) {
             double prob = (double) e.getValue() / totalSymbols;
@@ -89,9 +79,8 @@ public class NetworkPacket {
     }
 
     // Compute compression ratio
-    public double getRatio() {
+    public double getRatio(double huffmanAvg) {
         int fixedBits = (int) Math.ceil(Math.log(freqMap.size()) / Math.log(2));
-        double huffAvg = getHuffmanAvg();
-        return fixedBits / huffAvg;
+        return fixedBits / huffmanAvg;
     }
 }
